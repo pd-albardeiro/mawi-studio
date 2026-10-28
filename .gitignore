@@ -1,0 +1,9 @@
+build/
+dist/
+out/
+.cache/
+*.log
+.env
+.idea/
+.vscode/
+__pycache__/
