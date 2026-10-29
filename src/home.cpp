@@ -1,5 +1,6 @@
 #include "home.hpp"
 #include "imgui.h"
+#include "brand.hpp"
 #include <cstdio>
 #include <cstring>
 
@@ -20,16 +21,16 @@ void draw_help(bool& open){
     ImGui::SetNextWindowSize(ImVec2(760,580),ImGuiCond_FirstUseEver);
     if(!ImGui::Begin("Help & Documentation",&open)){ImGui::End();return;}
     if(ImGui::CollapsingHeader("Getting Started",ImGuiTreeNodeFlags_DefaultOpen)){
-        ImGui::TextWrapped("MAWI Studio is an early Linux editor for creating 3D worlds. Start with New Project, choose a name and an existing destination folder, then Create Project. Use Open Project to select a folder containing project.meta. The editor currently has no 3D model importer; Import 3D Model is unavailable.");
+        ImGui::TextWrapped("MAWI Studio is an early Linux editor for creating 3D worlds. Start with New Project, choose a name and an existing destination folder, then Create Project. Use Open Project to select a folder containing project.meta. Import Wavefront OBJ geometry from Model > Import OBJ after opening a project.");
     }
     if(ImGui::CollapsingHeader("Interface Overview")){
         ImGui::TextWrapped("Viewport: view and select scene objects. Explorer: scene hierarchy and selection. Properties: edit position, rotation, scale and color. Toolbar: Select, Move, Rotate and Scale modes. Console: status and errors; close its tab to hide it, then use Show console to reopen.");
     }
     if(ImGui::CollapsingHeader("Working with Objects")){
-        ImGui::TextWrapped("Click an object in the viewport or Explorer to select it. Select mode only selects. In Move mode, drag the selected object to change X/Y position. Rotate changes Y rotation; Scale changes X/Y scale. Property fields provide precise values. Right drag orbits the camera; the mouse wheel zooms.");
+        ImGui::TextWrapped("Click an object in the viewport or Explorer to select it. Select mode only selects. In Move mode, drag to change X/Y position. Rotate changes Y rotation; Scale changes X/Y scale. Properties edits all transform axes and pivot. Modeling includes duplicate, delete and face extrude; choose a face index and distance. Right drag orbits; the wheel zooms.");
     }
     if(ImGui::CollapsingHeader("Projects and Files")){
-        ImGui::TextWrapped("Projects live in the destination folder you choose. Each project contains project.meta, scenes/main.mawi and assets/. Save writes the current scene into scenes/main.mawi. The .mawi scene format is MAWI-specific and is not a Roblox format. There is no model import or export yet. Recent project paths are stored under the Linux user configuration directory.");
+        ImGui::TextWrapped("Projects live in your chosen folder with project.meta, scenes/main.mawi and assets/. Save writes the scene in MAWI_PROJECT 2 format; version 1 scenes still open. Model > Import OBJ adds geometry without textures; Export Selected OBJ writes the selected object. .mawi is not a Roblox format. MDL, RBX, RBXM and Roblox maps are not supported. Recent projects are stored in the Linux user configuration directory.");
     }
     if(ImGui::CollapsingHeader("Controls and Shortcuts")){
         ImGui::BulletText("Ctrl+S: save the open scene");ImGui::BulletText("Ctrl+O: open the project chooser");
@@ -37,11 +38,11 @@ void draw_help(bool& open){
         ImGui::BulletText("Mouse wheel in viewport: zoom");
     }
     if(ImGui::CollapsingHeader("Troubleshooting")){
-        ImGui::TextWrapped("Invalid project? Check that the selected directory contains project.meta and scenes/main.mawi. Missing or malformed files are reported without replacing the current scene. Unsupported models cannot be imported in this version. Check write permissions when saving fails. X11 and compatible OpenGL are required.");
+        ImGui::TextWrapped("Invalid project? Check that its folder contains project.meta and scenes/main.mawi. Missing or malformed files are reported without replacing the scene. OBJ imports must contain vertices and faces; unsupported extensions show an error. Check write permissions when saving fails. X11 and compatible OpenGL are required.");
     }
     if(ImGui::CollapsingHeader("About MAWI Studio")){
         ImGui::TextUnformatted("MAWI Studio 0.1.0");ImGui::TextUnformatted("Developed by: P. Albardeiro");
-        ImGui::TextWrapped("Goal: create 3D worlds and projects on Linux, with future interoperability work. This is an early editor; game runtime, model import/export and Roblox compatibility are not available.");
+        ImGui::TextWrapped("Goal: create 3D worlds and projects on Linux, with future interoperability work. This early editor supports geometry-only OBJ exchange; game runtime, MDL and Roblox file compatibility are planned, not available.");
     }
     ImGui::End();
 }
@@ -50,11 +51,13 @@ void draw_home(HomeState& state){
     ImGui::SetNextWindowPos(ImVec2(0,0));ImGui::SetNextWindowSize(ImGui::GetIO().DisplaySize);
     ImGui::Begin("Welcome to MAWI Studio",nullptr,ImGuiWindowFlags_NoDecoration|ImGuiWindowFlags_NoMove|ImGuiWindowFlags_NoResize|ImGuiWindowFlags_NoDocking);
     ImGui::SetCursorPos(ImVec2(34,32));ImGui::BeginChild("Welcome actions",ImVec2(ImGui::GetContentRegionAvail().x*.55f,0),false);
-    ImGui::TextUnformatted("MAWI Studio");ImGui::TextDisabled("Build worlds and 3D projects on Linux.");ImGui::Spacing();ImGui::Separator();ImGui::Spacing();
+    draw_mawi_mark(ImGui::GetCursorScreenPos(),44);ImGui::Dummy(ImVec2(50,44));ImGui::SameLine();
+    ImGui::BeginGroup();ImGui::TextUnformatted("MAWI Studio");ImGui::TextDisabled("Build worlds and 3D projects on Linux.");ImGui::EndGroup();
+    ImGui::Spacing();ImGui::Separator();ImGui::Spacing();
     if(ImGui::Button(u8"\uf067  New Project",ImVec2(220,38))){state.error.clear();state.newDialog=true;}
     if(ImGui::Button(u8"\uf07c  Open Project",ImVec2(220,38))){state.error.clear();state.openDialog=true;}
-    ImGui::BeginDisabled();ImGui::Button("Import 3D Model",ImVec2(220,38));ImGui::EndDisabled();
-    if(ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))ImGui::SetTooltip("No model importer is available in this version");
+    if(ImGui::Button(u8"\uf1b2  Import 3D Model",ImVec2(220,38)))state.importPrompt=true;
+    if(ImGui::IsItemHovered())ImGui::SetTooltip("Wavefront OBJ; open or create a project first");
     ImGui::Spacing();if(ImGui::Button(u8"\uf02d  Help & Documentation"))state.help=true;
     if(ImGui::Button(u8"\uf013  Settings"))state.settings=true;
     ImGui::TextDisabled("Version 0.1.0");ImGui::TextDisabled("Developed by: P. Albardeiro");
@@ -90,5 +93,12 @@ void draw_home(HomeState& state){
         if(!state.error.empty())ImGui::TextWrapped("%s",state.error.c_str());
         if(ImGui::Button("Open")){state.chosenPath=state.openPath;state.action=HomeAction::Open;}
         ImGui::SameLine();if(ImGui::Button("Cancel")){state.openDialog=false;ImGui::CloseCurrentPopup();}
+        ImGui::EndPopup();}
+    if(state.importPrompt)ImGui::OpenPopup("Import Model");
+    if(ImGui::BeginPopupModal("Import Model",&state.importPrompt,ImGuiWindowFlags_AlwaysAutoResize)){
+        ImGui::TextWrapped("Open or create a project, then use Model > Import OBJ in the editor.\nSupported format: Wavefront .obj (mesh geometry only). MDL and Roblox files are not supported yet.");
+        if(ImGui::Button("New Project")){state.importPrompt=false;state.newDialog=true;ImGui::CloseCurrentPopup();}
+        ImGui::SameLine();if(ImGui::Button("Open Project")){state.importPrompt=false;state.openDialog=true;ImGui::CloseCurrentPopup();}
+        ImGui::SameLine();if(ImGui::Button("Close")){state.importPrompt=false;ImGui::CloseCurrentPopup();}
         ImGui::EndPopup();}
 }

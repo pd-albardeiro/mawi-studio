@@ -10,7 +10,7 @@ struct HomeState {
     char parent[1024]{};
     char openPath[1024]{};
     std::string error;
-    bool newDialog=false,openDialog=false,help=false,settings=false;
+    bool newDialog=false,openDialog=false,help=false,settings=false,importPrompt=false;
     HomeAction action=HomeAction::Idle;
     std::string chosenPath;
 };

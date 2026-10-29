@@ -18,6 +18,8 @@ add_executable(mawi_studio
     src/workspace.cpp
     src/home.cpp
     src/settings.cpp
+    src/brand.cpp
+    src/mesh_io.cpp
     src/renderer.cpp
     vendor/imgui/imgui.cpp
     vendor/imgui/imgui_draw.cpp
@@ -45,4 +47,8 @@ if(BUILD_TESTING)
     target_include_directories(workspace_test PRIVATE include)
     target_compile_options(workspace_test PRIVATE -Wall -Wextra -Wpedantic)
     add_test(NAME workspace COMMAND workspace_test)
+    add_executable(mesh_test tests/mesh_test.cpp src/mesh_io.cpp src/project.cpp src/scene.cpp)
+    target_include_directories(mesh_test PRIVATE include)
+    target_compile_options(mesh_test PRIVATE -Wall -Wextra -Wpedantic)
+    add_test(NAME mesh COMMAND mesh_test)
 endif()

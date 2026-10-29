@@ -7,11 +7,18 @@ void Renderer::orbit(float dx, float dy) { yaw_ += dx*.45f; pitch_=std::clamp(pi
 void Renderer::zoom(float amount) { distance_=std::clamp(distance_+amount,3.f,30.f); }
 
 void Renderer::cube(const SceneObject& o, bool selected) const {
-    const float v[8][3]={{-.5f,-.5f,-.5f},{.5f,-.5f,-.5f},{.5f,.5f,-.5f},{-.5f,.5f,-.5f},{-.5f,-.5f,.5f},{.5f,-.5f,.5f},{.5f,.5f,.5f},{-.5f,.5f,.5f}};
-    const int faces[6][4]={{0,1,2,3},{4,7,6,5},{0,4,5,1},{3,2,6,7},{1,5,6,2},{0,3,7,4}};
-    glPushMatrix(); glTranslatef(o.position.x,o.position.y,o.position.z); glRotatef(o.rotation.y,0,1,0); glScalef(o.scale.x,o.scale.y,o.scale.z);
-    glBegin(GL_QUADS); for(int f=0;f<6;++f){ float shade=.72f+.055f*f; glColor3f(o.color.r*shade,o.color.g*shade,o.color.b*shade); for(int j=0;j<4;++j) glVertex3fv(v[faces[f][j]]); } glEnd();
-    if(selected){ glColor3f(.89f,.9f,.92f); glLineWidth(2); for(int f=0;f<6;++f){glBegin(GL_LINE_LOOP);for(int j=0;j<4;++j)glVertex3fv(v[faces[f][j]]);glEnd();}glLineWidth(1); }
+    static const Mesh fallback=cube_mesh();const Mesh& mesh=o.mesh.faces.empty()?fallback:o.mesh;
+    glPushMatrix();glTranslatef(o.position.x+o.pivot.x,o.position.y+o.pivot.y,o.position.z+o.pivot.z);
+    glRotatef(o.rotation.z,0,0,1);glRotatef(o.rotation.y,0,1,0);glRotatef(o.rotation.x,1,0,0);
+    glScalef(o.scale.x,o.scale.y,o.scale.z);glTranslatef(-o.pivot.x,-o.pivot.y,-o.pivot.z);
+    for(size_t f=0;f<mesh.faces.size();++f){float shade=.72f+.055f*(f%6);
+        glColor3f(o.color.r*shade,o.color.g*shade,o.color.b*shade);glBegin(GL_TRIANGLE_FAN);
+        for(int index:mesh.faces[f])if(index>=0&&size_t(index)<mesh.vertices.size()){
+            const auto& v=mesh.vertices[index];glVertex3f(v.x,v.y,v.z);}
+        glEnd();}
+    if(selected){glColor3f(.89f,.9f,.92f);glLineWidth(1.5f);
+        for(const auto& face:mesh.faces){glBegin(GL_LINE_LOOP);for(int index:face)if(index>=0&&size_t(index)<mesh.vertices.size()){
+            const auto& v=mesh.vertices[index];glVertex3f(v.x,v.y,v.z);}glEnd();}glLineWidth(1);}
     glPopMatrix();
 }
 

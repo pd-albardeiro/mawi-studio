@@ -3,6 +3,8 @@
 #include "home.hpp"
 #include "workspace.hpp"
 #include "settings.hpp"
+#include "brand.hpp"
+#include "mesh_io.hpp"
 #include "imgui.h"
 #include "imgui_internal.h"
 #include "backends/imgui_impl_opengl2.h"
@@ -19,6 +21,19 @@
 #include <filesystem>
 #include <chrono>
 #include <thread>
+
+static std::string choose_obj_file(bool save){
+    const char* cmd=save
+        ?"zenity --file-selection --save --confirm-overwrite --title='Export OBJ' --file-filter='OBJ files | *.obj' 2>/dev/null"
+        :"zenity --file-selection --title='Import OBJ' --file-filter='OBJ files | *.obj' 2>/dev/null";
+    FILE* pipe=popen(cmd,"r");
+    if(!pipe)return {};
+    char buffer[2048];std::string path;
+    while(fgets(buffer,sizeof(buffer),pipe))path+=buffer;
+    pclose(pipe);
+    while(!path.empty()&&(path.back()=='\n'||path.back()=='\r'))path.pop_back();
+    return path;
+}
 
 static bool same_settings(const Settings& a,const Settings& b){
     return a.theme==b.theme&&a.orbitSensitivity==b.orbitSensitivity&&a.zoomSensitivity==b.zoomSensitivity
@@ -146,6 +161,7 @@ int main(){
         ImGui_ImplOpenGL2_NewFrame();ImGui::NewFrame();
         if(editor){
         if(ImGui::BeginMainMenuBar()){
+        draw_mawi_mark(ImGui::GetCursorScreenPos(),18);ImGui::Dummy(ImVec2(19,18));ImGui::SameLine();
         ImGui::TextUnformatted("MAWI Studio");ImGui::Separator();ImGui::TextDisabled("%s",workspace.name.c_str());
         if(ImGui::BeginMenu("File")){if(ImGui::MenuItem("Home")){editor=false;home.recent=read_recent();}
             if(ImGui::MenuItem("Open Project","Ctrl+O")){editor=false;home.openDialog=true;}
@@ -153,6 +169,14 @@ int main(){
             ImGui::EndMenu();}
         if(ImGui::BeginMenu("Help")){if(ImGui::MenuItem("Help & Documentation"))home.help=true;ImGui::EndMenu();}
         if(ImGui::BeginMenu("Edit")){if(ImGui::MenuItem("Settings"))home.settings=true;ImGui::EndMenu();}
+        if(ImGui::BeginMenu("Model")){
+            if(ImGui::MenuItem("Add Cube")){SceneObject o;o.id=scene.nextId++;o.name="Cube " + std::to_string(o.id);o.mesh=cube_mesh();scene.objects.push_back(o);selected=o.id;status="Added cube (unsaved)";}
+            if(ImGui::MenuItem("Import OBJ...")){auto path=choose_obj_file(false);if(!path.empty()){std::string error;
+                if(import_obj(path,scene,selected,error))status="Imported OBJ (unsaved)";else status=error;}}
+            bool hasSelection=selected_object(scene,selected)!=nullptr;
+            if(ImGui::MenuItem("Export Selected OBJ...",nullptr,false,hasSelection)){auto path=choose_obj_file(true);if(!path.empty()){
+                std::string error;status=export_obj(path,*selected_object(scene,selected),error)?"Exported OBJ":error;}}
+            ImGui::EndMenu();}
         if(ImGui::Button(u8"\uf0c7  Save"))save();
         ImGui::SameLine();ImGui::BeginDisabled();ImGui::Button("Undo");ImGui::SameLine();ImGui::Button("Redo");ImGui::EndDisabled();ImGui::SameLine();
         ImGui::BeginDisabled();ImGui::Button("Play");ImGui::SameLine();ImGui::Button("Stop");ImGui::EndDisabled();
@@ -177,6 +201,28 @@ int main(){
             ImGui::Text("%s  |  %s",o->name.c_str(),o->type.c_str());ImGui::Separator();
             ImGui::DragFloat3("Position",&o->position.x,.05f);ImGui::DragFloat3("Rotation",&o->rotation.x,.5f);
             ImGui::DragFloat3("Scale",&o->scale.x,.02f,.05f,50.f);ImGui::ColorEdit3("Color",&o->color.r);
+            ImGui::DragFloat3("Pivot",&o->pivot.x,.05f);
+            if(ImGui::CollapsingHeader("Modeling",ImGuiTreeNodeFlags_DefaultOpen)){
+                if(ImGui::Button("Duplicate")){SceneObject copy=*o;copy.id=scene.nextId++;copy.name+=" Copy";copy.position.x+=1;
+                    scene.objects.push_back(std::move(copy));selected=scene.objects.back().id;status="Duplicated object (unsaved)";}
+                ImGui::SameLine();ImGui::BeginDisabled(scene.objects.size()<=1);
+                if(ImGui::Button("Delete")){int id=o->id;scene.objects.erase(std::remove_if(scene.objects.begin(),scene.objects.end(),
+                    [id](const SceneObject& item){return item.id==id;}),scene.objects.end());selected=scene.objects.front().id;status="Deleted object (unsaved)";}
+                ImGui::EndDisabled();
+                if(auto* active=selected_object(scene,selected)){
+                    static int face=3;static float extrusion=.5f;static float inset=.25f;
+                    int maxFace=int(active->mesh.faces.size())-1;
+                    if(maxFace>=0){face=std::clamp(face,0,maxFace);ImGui::SliderInt("Face",&face,0,maxFace);
+                        ImGui::DragFloat("Distance",&extrusion,.01f,-10.f,10.f);
+                        if(ImGui::Button("Extrude face")){if(extrude_face(active->mesh,size_t(face),extrusion))status="Extruded face (unsaved)";
+                            else status="Cannot extrude this face";}
+                        ImGui::SliderFloat("Inset",&inset,.05f,.95f);
+                        if(ImGui::Button("Inset face")){if(inset_face(active->mesh,size_t(face),inset))status="Inset face (unsaved)";
+                            else status="Cannot inset this face";}
+                        ImGui::SameLine();if(ImGui::Button("Subdivide face")){if(subdivide_face(active->mesh,size_t(face)))status="Subdivided face (unsaved)";
+                            else status="Cannot subdivide this face";}}
+                }
+            }
         }else ImGui::TextDisabled("Select an object");ImGui::End();
         if(consoleOpen){ImGui::Begin("Console",&consoleOpen);ImGui::TextUnformatted(status.c_str());ImGui::End();}
         else {ImGui::Begin("Console toggle",nullptr,ImGuiWindowFlags_NoDecoration);if(ImGui::Button("Show console"))consoleOpen=true;ImGui::End();}
