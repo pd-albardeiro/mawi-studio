@@ -15,7 +15,7 @@ void Renderer::cube(const SceneObject& o, bool selected) const {
     glPopMatrix();
 }
 
-void Renderer::draw(const Scene& scene, int selectedId, int x, int y, int width, int height) {
+void Renderer::draw(const Scene& scene, int selectedId, int x, int y, int width, int height, bool grid, bool axes) {
     if(width<1||height<1)return;
     glViewport(x,y,width,height); glEnable(GL_SCISSOR_TEST);glScissor(x,y,width,height);
     glClearColor(.105f,.11f,.12f,1); glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);
@@ -23,8 +23,8 @@ void Renderer::draw(const Scene& scene, int selectedId, int x, int y, int width,
     glMatrixMode(GL_PROJECTION);glLoadIdentity();
     const double aspect=double(width)/height; glFrustum(-.75*aspect,.75*aspect,-.75,.75,1,100);
     glMatrixMode(GL_MODELVIEW);glLoadIdentity();glTranslatef(0,-.7f,-distance_);glRotatef(pitch_,1,0,0);glRotatef(yaw_,0,1,0);
-    glColor3f(.22f,.23f,.25f);glBegin(GL_LINES);for(int i=-10;i<=10;++i){glVertex3f(i,0,-10);glVertex3f(i,0,10);glVertex3f(-10,0,i);glVertex3f(10,0,i);}glEnd();
-    glLineWidth(2);glBegin(GL_LINES);glColor3f(.62f,.34f,.34f);glVertex3f(0,.02f,0);glVertex3f(3,.02f,0);glColor3f(.35f,.62f,.4f);glVertex3f(0,.02f,0);glVertex3f(0,3,0);glColor3f(.35f,.48f,.7f);glVertex3f(0,.02f,0);glVertex3f(0,.02f,3);glEnd();glLineWidth(1);
+    if(grid){glColor3f(.22f,.23f,.25f);glBegin(GL_LINES);for(int i=-10;i<=10;++i){glVertex3f(i,0,-10);glVertex3f(i,0,10);glVertex3f(-10,0,i);glVertex3f(10,0,i);}glEnd();}
+    if(axes){glLineWidth(2);glBegin(GL_LINES);glColor3f(.62f,.34f,.34f);glVertex3f(0,.02f,0);glVertex3f(3,.02f,0);glColor3f(.35f,.62f,.4f);glVertex3f(0,.02f,0);glVertex3f(0,3,0);glColor3f(.35f,.48f,.7f);glVertex3f(0,.02f,0);glVertex3f(0,.02f,3);glEnd();glLineWidth(1);}
     for(const auto& o:scene.objects)cube(o,o.id==selectedId);
     glDisable(GL_SCISSOR_TEST);glDisable(GL_DEPTH_TEST);
 }

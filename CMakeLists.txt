@@ -15,6 +15,9 @@ add_executable(mawi_studio
     src/main.cpp
     src/scene.cpp
     src/project.cpp
+    src/workspace.cpp
+    src/home.cpp
+    src/settings.cpp
     src/renderer.cpp
     vendor/imgui/imgui.cpp
     vendor/imgui/imgui_draw.cpp
@@ -26,6 +29,7 @@ target_include_directories(mawi_studio PRIVATE include vendor/imgui ${X11_INCLUD
 target_link_directories(mawi_studio PRIVATE ${X11_LIBRARY_DIRS} ${GLX_LIBRARY_DIRS} ${EPOXY_LIBRARY_DIRS})
 target_link_libraries(mawi_studio PRIVATE ${X11_LIBRARIES} ${GLX_LIBRARIES} ${EPOXY_LIBRARIES} ${GL_LIBRARIES})
 target_compile_options(mawi_studio PRIVATE -Wall -Wextra -Wpedantic)
+target_compile_definitions(mawi_studio PRIVATE MAWI_ICON_FONT_PATH="${CMAKE_CURRENT_SOURCE_DIR}/assets/fonts/fa-solid-900.ttf")
 set_source_files_properties(
     vendor/imgui/imgui.cpp vendor/imgui/imgui_draw.cpp
     vendor/imgui/imgui_tables.cpp vendor/imgui/imgui_widgets.cpp
@@ -34,3 +38,11 @@ set_source_files_properties(
 )
 
 install(TARGETS mawi_studio RUNTIME DESTINATION bin)
+
+include(CTest)
+if(BUILD_TESTING)
+    add_executable(workspace_test tests/workspace_test.cpp src/workspace.cpp src/project.cpp src/scene.cpp)
+    target_include_directories(workspace_test PRIVATE include)
+    target_compile_options(workspace_test PRIVATE -Wall -Wextra -Wpedantic)
+    add_test(NAME workspace COMMAND workspace_test)
+endif()
